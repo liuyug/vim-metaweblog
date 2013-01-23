@@ -401,7 +401,13 @@ def getRecentPosts(numberOfPosts=0):
     vim.current.buffer.append('%s:'% vim.eval('s:blogName'))
     vim.current.buffer.append('')
     for post in array:
-        vim.current.buffer.append('%d - %s' % (post['postid'],post['title']))
+        try:
+            title = post['title']
+            if isinstance(title, unicode):
+                title = title.encode('utf-8')
+            vim.current.buffer.append('%d - %s' % (post['postid'], title))
+        except Exception as err:
+            vim.command('call s:echoError("%s")'% err)
 
     vim.current.buffer.append('')
     vim.current.buffer.append('Press <Enter> to view current post')
