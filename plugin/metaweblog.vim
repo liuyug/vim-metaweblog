@@ -17,14 +17,29 @@
 "
 " Maintainer:Yugang LIU <liuyug@gmail.com>
 " Last Change:Jan 21, 2013
-" URL: http://...
+" URL:https://github.com/liuyug/vim-metaweblog 
 
 if exists("g:MetaWeblog_toggleView")
-    finish
+    "finish
 endif
 
 let g:MetaWeblog_toggleView = 0
 runtime password.vim
+
+function! s:echo(msg)
+    redraw
+    echomsg "MetaWeblog: " . a:msg
+endfunction
+function! s:echoWarning(msg)
+    echohl warningmsg
+    call s:echo(a:msg)
+    echohl normal
+endfunction
+function! s:echoError(msg)
+    echohl errormsg
+    call s:echo(a:msg)
+    echohl normal
+endfunction
 
 function! s:GetUsersBlogs()
 python <<EOF
@@ -33,18 +48,19 @@ import xmlrpclib
 
 def getUsersBlogs():
     try:
-        print('Wait for Blog information.')
+        vim.command('call s:echo("Fetch Blog information...")')
         proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
         info = proxy.metaWeblog.getUsersBlogs('',
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'))
+        vim.command('call s:echo("Ok")')
     except Exception as err:
-        print(err)
+        vim.command('call s:echoError("%s")'% err)
         return
     vim.command('let s:blogName="%s"'% info[0].get('blogName'))
     vim.command('let s:blogurl="%s"'% info[0].get('url'))
     vim.command('let s:blogid="%s"'% info[0].get('blogid'))
-
+    
 getUsersBlogs()
 EOF
 endfunction
@@ -71,12 +87,16 @@ function! s:Rst2html()
             \ --template=<(echo "\%(body_pre_docinfo)s\%(docinfo)s\%(body)s")'
 endfunction
 
-function! s:NewPost()
+function! s:RstPost()
     call s:Init()
     if &filetype != 'rst' 
-        echo 'No rst file!'
+        call s:echoWarning('No rst file!')
         return
     endif
+    if !exists('b:postid')
+        let b:postid=0
+    endif
+    let b:postid = input('Please input postid (0 for new post)['. b:postid .']:',b:postid)
     call cursor(1,1)
     let lineno = search('^=')
     if lineno == 1
@@ -91,20 +111,74 @@ function! s:NewPost()
     else
         let b:categories = ''
     endif
-    call cursor(1,1)
-    let lineno = search('^:Tags:')
-    if lineno > 1
-        let b:tags = getline(lineno)[6:]
-    else
-        let b:tags = ''
-    endif
+python <<EOF
+import vim
+import xmlrpclib
 
+def rstPost():
+    files={}
+    def srcrepl(matchobj):
+        if matchobj.group(2) in files:
+            real_url = files[matchobj.group(2)]
+        else:
+            real_url = vim.command('call s:UploadFile(%s)'% matchobj.group(2))
+            files[matchobj.group(2)] = real_url
+        img = '<img%ssrc="%s" name="%s"'% 
+            (matchobj.group(1), real_url, matchobj.group(2))
+        return img
+    data={}
+    data['title'] = vim.eval('b:title').strip()
+    data['categories'] = vim.eval('b:categories').strip()
+    vim.command('call s:echo("Convert RST to HTML")')
+    winnr = vim.eval('winnr()')
+    vim.command('call s:Rst2html()')
+    content = '\n'.join(vim.current.buffer)
+    vim.command('bdelete')
+    vim.command('%swincmd w'% winnr)
+    postid = int(vim.eval('b:postid'))
+    try:
+        proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
+        if postid == 0:
+            vim.command('call s:echo("Check image and upload...")')
+            data['description'] = re.sub(r'<img([^>]+)src="([^"]*)"',srcrepl, content)
+            vim.command('call s:echo("Post article...")')
+            postid = proxy.metaWeblog.newPost(
+                vim.eval('s:blogid'),
+                vim.eval('g:MetaWeblog_username'),
+                vim.eval('g:MetaWeblog_password'),
+                data, True)
+            postid = int(postid)
+            vim.command('let b:postid=%d'% postid)
+        else:
+            # don't upload image in rst edit mode
+            # edit html after posted and upload image
+            vim.command('call s:echo("Post article...")')
+            proxy.metaWeblog.editPost(
+                postid,
+                vim.eval('g:MetaWeblog_username'),
+                vim.eval('g:MetaWeblog_password'),
+                data,True)
+        vim.command('call s:echo("Ok")')
+        return postid
+    except Exception as err:
+        vim.command('call s:echoError("%s")'% err)
+    return postid
+
+rstPost()
+EOF
+endfunction
+
+function! s:UploadFile(filename)
+    call s:Init()
 python <<EOF
 import vim
 import xmlrpclib
 import mimetypes
+import os.path
 
 def uploadFile(filename):
+    if not os.path.exists(filename):
+        return ''
     mediaobj={}
     mediaobj['name']=filename
     mediaobj['type']=mimetypes.guess_type(filename)[0]
@@ -119,42 +193,29 @@ def uploadFile(filename):
             mediaobj)
         return data['url']
     except Exception as err:
-        print(err)
+        vim.command('call s:echoError("%s")'% err)
+        return ''
 
-
-def newPost():
-    files={}
-    def srcrepl(matchobj):
-        if matchobj.group(2) in files:
-            real_url = files[matchobj.group(2)]
-        else:
-            real_url = uploadFile(matchobj.group(2))
-            files[matchobj.group(2)] = real_url
-        img = '<img%ssrc="%s"'% (matchobj.group(1), real_url)
-        return img
-    data={}
-    data['title'] = vim.eval('b:title').strip()
-    data['categories'] = vim.eval('b:categories').strip()
-    data['tags'] = vim.eval('b:tags').strip()
-    vim.command('call s:Rst2html()')
-    #vim.command('execute "buffer " . s:html')
-    content = '\n'.join(vim.current.buffer)
-    vim.command('close')
-    data['description'] = re.sub(r'<img([^>]+)src="([^"]*)"',srcrepl, content)
-    try:
-        print('Wait for submit.')
-        proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
-        postid = proxy.metaWeblog.newPost(
-            vim.eval('s:blogid'),
-            vim.eval('g:MetaWeblog_username'),
-            vim.eval('g:MetaWeblog_password'),
-            data, True)
-    except Exception as err:
-        print(err)
-    return int(postid)
-
-newPost()
+url = uploadFile(vim.eval('a:filename'))
+vim.command('let url="%s"'% url)
 EOF
+return url
+endfunction
+
+function! s:UploadHereImgFile()
+    if &filetype != 'html'
+        call s:echoError('No html file!')
+        return
+    endif
+    let filename = expand('<cfile>')
+    let url = s:UploadFile(filename)
+    if url == ''
+        call s:echoError('Not found "'. filename .'"')
+    else
+        let ff = substitute(filename,'/','\\/','g')
+        let uu = substitute(url,'/','\\/','g')
+        execute '%s/src="'. ff .'"/src="'. uu .'"/g'
+    endif
 endfunction
 
 function! s:BrowsePost()
@@ -176,31 +237,67 @@ browsePost()
 EOF
 endfunction
 
-function! s:SaveHtmlPost()
+function! s:HtmlPost()
     call s:Init()
     if &filetype != 'html'
-        echo 'No html file!'
+        call s:echoError('No html file!')
         return
     endif
+    if !exists('b:postid')
+        let b:postid = 0
+    endif
+    let b:postid = input('Please input postid (0 for new post)['. b:postid .']:',b:postid)
+    if !exists('b:title')
+        let b:title = 'Unknown title'
+    endif
+    let b:title = input('Please input title ['. b:title .']:',b:title)
+
 python<<EOF
+import vim
+import xmlrpclib
+
+def htmlPost():
     data = {}
     data['title'] = vim.eval('b:title').strip()
-    #vim.command('execute "buffer " . s:html')
     content = '\n'.join(vim.current.buffer)
     data['description'] = content
-    print(data)
+    postid = int(vim.eval('b:postid'))
     try:
-        proxy.metaWeblog.editPost(
-            int(vim.eval('b:postid')),
-            vim.eval('g:MetaWeblog_username'),
-            vim.eval('g:MetaWeblog_password'),
-            data,True)
+        # upload image manually in html mode
+        vim.command('call s:echo("Post article...")')
+        proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
+        if postid == 0:
+            postid = proxy.metaWeblog.newPost(
+                vim.eval('s:blogid'),
+                vim.eval('g:MetaWeblog_username'),
+                vim.eval('g:MetaWeblog_password'),
+                data, True)
+            postid = int(postid)
+            vim.command('let b:postid=%d'% postid)
+        else:
+            proxy.metaWeblog.editPost(
+                postid,
+                vim.eval('g:MetaWeblog_username'),
+                vim.eval('g:MetaWeblog_password'),
+                data,True)
+        vim.command('call s:echo("Ok")')
+        return postid
     except Exception as err:
-        print(err)
+        vim.command('call s:echoError("%s")'% err)
         return
-EOF 
+
+htmlPost()
+EOF
 endfunction
 
+function! s:PostArticle()
+    call s:Init()
+    if &filetype == 'rst' 
+        call s:RstPost()
+    elseif &filetype == 'html' 
+        call s:HtmlPost()
+    endif
+endfunction
 
 function! s:GetPost()
     call s:Init()
@@ -215,13 +312,14 @@ def getPost():
     except ValueError as err:
         return
     try:
-        print('Wait for fetching article.')
+        vim.command('call s:echo("Fetch article...")')
         proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
         data = proxy.metaWeblog.getPost(postid,
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'))
+        vim.command('call s:echo("Ok")')
     except Exception as err:
-        print(err)
+        vim.command('call s:echoError("%s")'% err)
         return 
     if int(vim.eval('bufexists(s:html)')):
         vim.command('execute g:MetaWeblog_htmlWindow ."wincmd w"')
@@ -239,7 +337,6 @@ def getPost():
     vim.current.buffer.append(content.split('\n'))
     vim.command('setlocal filetype=html')
     vim.command('setlocal buftype=nowrite bufhidden=wipe noswapfile nowrap')
-    vim.command('nnoremap <buffer> <silent> <leader>bs <ESC>:MetaWeblogsavePost<CR>')
 
 getPost()
 EOF
@@ -259,15 +356,16 @@ def deletePost():
     except ValueError as err:
         return
     try:
-        print('Wait for delete.')
+        vim.command('call s:echo("Delete...")')
         proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
         proxy.metaWeblog.deletePost('',
             postid,
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'),
             True)
+        vim.command('call s:echo("Ok")')
     except Exception as err:
-        print(err)
+        vim.command('call s:echoError("%s")'% err)
         return 
     del vim.current.buffer[lineno-1]
 
@@ -276,7 +374,6 @@ EOF
 endfunction
 
 function! s:RefreshRecentPosts()
-    " del vim.current.buffer[:]
     execute '%delete'
     call s:GetRecentPosts()
 endfunction
@@ -289,15 +386,16 @@ import xmlrpclib
 
 def getRecentPosts(numberOfPosts=0):
     try:
-        print('Wait for fetching recent blogs.')
+        vim.command('call s:echo("Fetch recent blogs...")')
         proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
         array = proxy.metaWeblog.getRecentPosts(
             vim.eval('s:blogid'),
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'),
             numberOfPosts)
+        vim.command('call s:echo("Ok")')
     except Exception as err:
-        print(err)
+        vim.command('call s:echoError("%s")'% err)
         return 
     vim.current.buffer.append('%s:'% vim.eval('s:blogName'))
     vim.current.buffer.append('')
@@ -343,13 +441,14 @@ command! MetaWeblogbrowsePost            :call s:BrowsePost()
 command! MetaWebloggetPost               :call s:GetPost()
 command! MetaWeblogrefreshRecentPosts    :call s:RefreshRecentPosts()
 command! MetaWeblogdeletePost            :call s:DeletePost()
+
+command! MetaWeblogUploadHereImgFile     :call s:UploadHereImgFile()
 command! MetaWeblogToggleView            :call s:ToggleRecentPostsView()
-command! MetaWeblognewPost               :call s:NewPost()
-command! MetaWeblogsavePost              :call s:SaveHtmlPost()
+command! MetaWeblogPost                  :call s:PostArticle()
 
-noremap <silent> <leader>bl <ESC>:MetaWeblogToggleView<CR>
-noremap <silent> <leader>bn <ESC>:MetaWeblognewPost<CR>
-
+nnoremap <unique> <silent> <leader>bl <ESC>:MetaWeblogToggleView<CR>
+nnoremap <unique> <silent> <leader>bp <ESC>:MetaWeblogPost<CR>
+nnoremap <unique> <silent> <leader>bu <ESC>:MetaWeblogUploadHereImgFile<CR>
 
 
 
