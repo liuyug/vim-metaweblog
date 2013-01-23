@@ -4,7 +4,7 @@ VIM MetaWeblog
 :Author: Yugang LIU <liuyug # gmail.com>
 :URL: https://github.com/liuyug/vim-metaweblog
 
-Submit your *RST* article in VIM with metaweblog interface. 
+Submit your **RST** article in VIM with metaweblog interface. 
 
 Feature:
 

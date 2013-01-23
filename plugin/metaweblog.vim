@@ -20,7 +20,7 @@
 " URL:https://github.com/liuyug/vim-metaweblog 
 
 if exists("g:MetaWeblog_toggleView")
-    "finish
+    finish
 endif
 
 let g:MetaWeblog_toggleView = 0
@@ -123,9 +123,9 @@ def rstPost():
         else:
             real_url = vim.command('call s:UploadFile(%s)'% matchobj.group(2))
             files[matchobj.group(2)] = real_url
-        img = '<img%ssrc="%s" name="%s"'% 
-            (matchobj.group(1), real_url, matchobj.group(2))
+        img = '<img%ssrc="%s" name="%s"'% (matchobj.group(1), real_url, matchobj.group(2))
         return img
+
     data={}
     data['title'] = vim.eval('b:title').strip()
     data['categories'] = vim.eval('b:categories').strip()
@@ -153,6 +153,7 @@ def rstPost():
             # don't upload image in rst edit mode
             # edit html after posted and upload image
             vim.command('call s:echo("Post article...")')
+            data['description'] = content
             proxy.metaWeblog.editPost(
                 postid,
                 vim.eval('g:MetaWeblog_username'),
