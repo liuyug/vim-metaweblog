@@ -2,9 +2,10 @@
 VIM MetaWeblog
 ==============
 :Author: Yugang LIU <liuyug # gmail.com>
-:URL: https://github.com/liuyug/vim-metaweblog
+:Github: https://github.com/liuyug/vim-metaweblog
+:VIM: http://www.vim.org/scripts/script.php?script_id=4411
 
-Submit your **RST** article in VIM with metaweblog interface. 
+Submit your **RST** article in VIM to Blog with metaweblog interface. 
 
 Feature:
 

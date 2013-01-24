@@ -16,6 +16,7 @@
 " along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "
 " Maintainer:Yugang LIU <liuyug@gmail.com>
+" Version:1.0
 " Last Change:Jan 21, 2013
 " URL:https://github.com/liuyug/vim-metaweblog 
 
