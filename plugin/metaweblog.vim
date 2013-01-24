@@ -54,9 +54,9 @@ def getUsersBlogs():
         info = proxy.metaWeblog.getUsersBlogs('',
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'))
-        vim.command('call s:echo("Ok")')
+        vim.command('call s:echo("Fetch Blog information... DONE")')
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Fetch Blog information... %s")'% err)
         return
     vim.command('let s:blogName="%s"'% info[0].get('blogName'))
     vim.command('let s:blogurl="%s"'% info[0].get('url'))
@@ -162,10 +162,10 @@ def rstPost():
                 vim.eval('g:MetaWeblog_username'),
                 vim.eval('g:MetaWeblog_password'),
                 data,True)
-        vim.command('call s:echo("Ok")')
+        vim.command('call s:echo("Post article... DONE")')
         return postid
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Post article... %s")'% err)
     return postid
 
 rstPost()
@@ -196,9 +196,10 @@ def uploadFile(filename):
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'),
             mediaobj)
+        vim.command('call s:echo("Upload file: %s => %s")'% (filename,data['url']))
         return data['url']
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Upload file: %s => %s")'% (filename,err))
         return ''
 
 url = uploadFile(vim.eval('a:filename'))
@@ -287,10 +288,10 @@ def htmlPost():
                 vim.eval('g:MetaWeblog_username'),
                 vim.eval('g:MetaWeblog_password'),
                 data,True)
-        vim.command('call s:echo("Ok")')
+        vim.command('call s:echo("Post article... DONE")')
         return postid
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Post article... %s")'% err)
         return
 
 htmlPost()
@@ -324,9 +325,9 @@ def getPost():
         data = proxy.metaWeblog.getPost(postid,
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'))
-        vim.command('call s:echo("Ok")')
+        vim.command('call s:echo("Fetch article... DONE")')
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Fetch article... %s")'% err)
         return 
     if int(vim.eval('bufexists(s:html)')):
         vim.command('execute g:MetaWeblog_htmlWindow ."wincmd w"')
@@ -370,9 +371,9 @@ def deletePost():
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'),
             True)
-        vim.command('call s:echo("Ok")')
+        vim.command('call s:echo("Delete... DONE")')
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Delete... %s")'% err)
         return 
     del vim.current.buffer[lineno-1]
 
@@ -400,9 +401,9 @@ def getRecentPosts(numberOfPosts=0):
             vim.eval('g:MetaWeblog_username'),
             vim.eval('g:MetaWeblog_password'),
             numberOfPosts)
-        vim.command('call s:echo("Ok")')
+        vim.command('call s:echo("Fetch recent blogs... DONE")')
     except Exception as err:
-        vim.command('call s:echoError("%s")'% err)
+        vim.command('call s:echoError("Fetch recent blogs... %s")'% err)
         return 
     vim.current.buffer.append('%s:'% vim.eval('s:blogName'))
     vim.current.buffer.append('')
