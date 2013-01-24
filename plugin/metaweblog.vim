@@ -67,25 +67,13 @@ EOF
 endfunction
 
 function! s:Init()
+    let b:rst = bufname('%')
     if exists("s:blogName")
         return  
     endif
-    let s:rst = bufname('%')
     let s:html = 'MetaWeblog_html'
     let s:recent = 'MetaWeblog_recent'
     call s:GetUsersBlogs()
-endfunction
-
-function! s:BrowseView(url)
-    silent execute '!firefox ' . a:url . ' &'
-endfunction
-
-function! s:Rst2html()
-    execute 'botright 2new ' . s:html
-    setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
-    silent execute 'read !rst2html.py 
-            \ --syntax-highlight=short ' . s:rst . '
-            \ --template=<(echo "\%(body_pre_docinfo)s\%(docinfo)s\%(body)s")'
 endfunction
 
 function! s:RstPost()
@@ -98,10 +86,10 @@ function! s:RstPost()
         let b:postid=0
     endif
     let b:postid = input('Please input postid (0 for new post)['. b:postid .']:',b:postid)
-    call cursor(1,1)
+    call cursor(1,0)
     let lineno = search('^=')
     if lineno == 1
-        let b:title = getline(lineno - 1)
+        let b:title = getline(lineno + 1)
     else
         let b:title = getline(lineno - 1)
     endif
@@ -132,7 +120,7 @@ def rstPost():
     data['categories'] = vim.eval('b:categories').strip()
     vim.command('call s:echo("Convert RST to HTML")')
     winnr = vim.eval('winnr()')
-    vim.command('call s:Rst2html()')
+    vim.command('call s:Rst2html("")')
     content = '\n'.join(vim.current.buffer)
     if isinstance(content, unicode):
        content = content.encode('utf-8')
@@ -222,25 +210,6 @@ function! s:UploadHereImgFile()
         let uu = substitute(url,'/','\\/','g')
         execute '%s/src="'. ff .'"/src="'. uu .'"/g'
     endif
-endfunction
-
-function! s:BrowsePost()
-    call s:Init()
-python <<EOF
-import vim
-import xmlrpclib
-
-def browsePost():
-    line = vim.eval('getline(".")')
-    try:
-        postid = int(line.split('-')[0].strip())
-        url = '%sposts/%d'% (vim.eval('s:blogurl'), postid)
-    except ValueError as err:
-        url = vim.eval('s:blogurl')
-    vim.command('call s:BrowseView("%s")'% url)
-
-browsePost()
-EOF
 endfunction
 
 function! s:HtmlPost()
@@ -363,6 +332,8 @@ def deletePost():
         postid = int(line.split('-')[0].strip())
     except ValueError as err:
         return
+    if vim.eval('input("Do you delete %s ? [N]:", "N")'% line).upper() == 'N':
+        return 
     try:
         vim.command('call s:echo("Delete...")')
         proxy = xmlrpclib.ServerProxy(vim.eval('g:MetaWeblog_api_url'))
@@ -441,7 +412,7 @@ function! s:ToggleRecentPostsView()
             let g:MetaWeblog_recentPostsWindow = winnr()
             setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
             setlocal cursorline
-            execute 'nnoremap <buffer> <silent> <enter> <ESC>:MetaWeblogbrowsePost<CR>'
+            execute 'nnoremap <buffer> <silent> <enter> <ESC>:MetaWeblogBrowserPost<CR>'
             execute 'nnoremap <buffer> <silent> e <ESC>:MetaWebloggetPost<CR>'
             execute 'nnoremap <buffer> <silent> r <ESC>:MetaWeblogrefreshRecentPosts<CR>'
             execute 'nnoremap <buffer> <silent> d <ESC>:MetaWeblogdeletePost<CR>'
@@ -450,8 +421,100 @@ function! s:ToggleRecentPostsView()
     endif
 endfunction
 
+function! s:Rst2html(output)
+    let title = b:title
+    let rst = b:rst
+    if a:output == ''
+        execute 'botright 2new ' . s:html
+        setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
+        silent execute 'read !rst2html.py 
+                \ --title="'. title .'"
+                \ --syntax-highlight=short 
+                \ --template=<(echo "\%(body_pre_docinfo)s\%(docinfo)s\%(body)s")
+                \ --cloak-email-addresses
+                \ '. rst 
+    else
+        silent execute '!rst2html.py 
+                \ --title="' . title . '"
+                \ --cloak-email-addresses
+                \ '. rst .' '. a:output
 
-command! MetaWeblogbrowsePost            :call s:BrowsePost()
+    endif
+endfunction
+
+function! s:BrowserView(url)
+    silent execute '!firefox ' . a:url . ' &'
+endfunction
+
+function! s:BrowserPost()
+    call s:Init()
+    let line = getline('.') 
+    let len = stridx(line, ' - ')
+    let postid = strpart(line, 0, len)
+    let url = s:blogurl . 'posts/' . postid
+    call s:BrowserView(url)
+endfunction
+
+function! s:BrowserLocal()
+    let b:rst = bufname('%')
+    call cursor(1,0)
+    let lineno = search('^=')
+    if lineno == 1
+        let b:title = getline(lineno + 1)
+    else
+        let b:title = getline(lineno - 1)
+    endif
+    let url = b:rst . '.html'
+    call s:Rst2html(url)
+    call s:BrowserView(url)
+endfunction
+
+
+function! s:BrowserReload()
+    " please install firefox addon
+    " https://addons.mozilla.org/en-US/firefox/addon/mozrepl/
+python <<EOF
+import sys, re
+from telnetlib import Telnet
+
+class Mozrepl(object):
+    def __init__(self, ip="127.0.0.1", port=4242):
+        self.ip = ip
+        self.port = port
+
+    def __enter__(self):
+        try:
+            self.t = Telnet(self.ip, self.port)
+        except Exception as err:
+            vim.command('call s:echoError("Please START mozrepl!")')
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.t.close()
+        del self.t
+
+    def BrowserReload(self):
+        if not hasattr(self, 't'):
+            vim.command('call s:echoError("Do not connect to mozrepl!")')
+            return
+        cmd = '''
+        vimYo = content.window.pageYOffset
+        vimXo = content.window.pageXOffset
+        BrowserReload()
+        content.window.scrollTo(vimXo,vimYo)
+        repl.quit()
+        '''
+        self.t.write(cmd)
+
+with Mozrepl() as moz:
+    moz.BrowserReload()
+EOF
+endfunction
+
+command! MetaWeblogBrowserPost           :call s:BrowserPost()
+command! MetaWeblogBrowserReload         :call s:BrowserReload()
+command! MetaWeblogBrowserLocal          :call s:BrowserLocal()
+
 command! MetaWebloggetPost               :call s:GetPost()
 command! MetaWeblogrefreshRecentPosts    :call s:RefreshRecentPosts()
 command! MetaWeblogdeletePost            :call s:DeletePost()
@@ -463,6 +526,7 @@ command! MetaWeblogPost                  :call s:PostArticle()
 nnoremap <unique> <silent> <leader>bl <ESC>:MetaWeblogToggleView<CR>
 nnoremap <unique> <silent> <leader>bp <ESC>:MetaWeblogPost<CR>
 nnoremap <unique> <silent> <leader>bu <ESC>:MetaWeblogUploadHereImgFile<CR>
-
+nnoremap <unique> <silent> <leader>br <ESC>:MetaWeblogBrowserReload<CR>
+nnoremap <unique> <silent> <leader>bb <ESC>:MetaWeblogBrowserLocal<CR>
 
 

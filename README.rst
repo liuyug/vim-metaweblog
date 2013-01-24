@@ -1,7 +1,7 @@
 ==============
 VIM MetaWeblog
 ==============
-:Author: Yugang LIU <liuyug # gmail.com>
+:Author: Yugang LIU <liuyug@gmail.com>
 :Github: https://github.com/liuyug/vim-metaweblog
 :VIM: http://www.vim.org/scripts/script.php?script_id=4411
 
@@ -32,6 +32,7 @@ Install
 2. Create new configuration file in ``~/.vim/password.vim``
 
 .. code:: vim
+    :number-lines: 1
 
     # password.vim
     let g:MetaWeblog_api_url='http://www.is-programmer.com/xmlrpc'
@@ -41,6 +42,7 @@ Install
 3. Install CSS to support style:
 
 .. code:: bash
+    :number-lines: 1
 
     # RST CSS style
     cat /usr/lib/python2.6/site-packages/docutils/writers/html4css1/html4css1.css > blog.css
@@ -51,19 +53,19 @@ Install
 
 4. Upload blog.css to Blog site.
 
-.. admonition:: Use UNICODE 
+.. note::
 
     Please set **UTF-8** encoding in VIM
 
 Guide
 ======
-VIM shortcut keys:
-
-.. code:: vim
+VIM shortcut keys::
 
     <leader>bl      toggle recent blog view
     <leader>bp      post article 
     <leader>bu      upload file under cursor in html
+    <leader>br      reload current page in Browser (need mozrepl)
+    <leader>bb      preview on local
 
 TODO
 =====
