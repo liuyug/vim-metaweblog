@@ -51,7 +51,7 @@ Install
 
 4. Upload blog.css to Blog site.
 
-.. hint::
+.. admonition:: Use UNICODE 
 
     Please set **UTF-8** encoding in VIM
 
