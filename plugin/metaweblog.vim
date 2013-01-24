@@ -122,7 +122,7 @@ def rstPost():
         if matchobj.group(2) in files:
             real_url = files[matchobj.group(2)]
         else:
-            real_url = vim.command('call s:UploadFile(%s)'% matchobj.group(2))
+            real_url=vim.eval('s:UploadFile("%s")'% matchobj.group(2))
             files[matchobj.group(2)] = real_url
         img = '<img%ssrc="%s" name="%s"'% (matchobj.group(1), real_url, matchobj.group(2))
         return img
@@ -134,6 +134,8 @@ def rstPost():
     winnr = vim.eval('winnr()')
     vim.command('call s:Rst2html()')
     content = '\n'.join(vim.current.buffer)
+    if isinstance(content, unicode):
+       content = content.encode('utf-8')
     vim.command('bdelete')
     vim.command('%swincmd w'% winnr)
     postid = int(vim.eval('b:postid'))
@@ -181,6 +183,7 @@ import os.path
 def uploadFile(filename):
     if not os.path.exists(filename):
         return ''
+    vim.command('call s:echo("Upload file: %s")'% filename)
     mediaobj={}
     mediaobj['name']=filename
     mediaobj['type']=mimetypes.guess_type(filename)[0]
@@ -263,6 +266,8 @@ def htmlPost():
     data['title'] = vim.eval('b:title').strip()
     content = '\n'.join(vim.current.buffer)
     data['description'] = content
+    if isinstance(content, unicode):
+       content = content.encode('utf-8')
     postid = int(vim.eval('b:postid'))
     try:
         # upload image manually in html mode
