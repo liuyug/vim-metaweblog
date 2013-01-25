@@ -55,7 +55,8 @@ Install
 
 .. note::
 
-    Please set **UTF-8** encoding in VIM
+    + Please set **UTF-8** encoding in VIM
+    + To suport Web browser reload, please install firefox addons `mozrepl <https://addons.mozilla.org/en-US/firefox/addon/mozrepl/>`_
 
 Guide
 ======
