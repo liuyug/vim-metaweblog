@@ -332,7 +332,7 @@ def deletePost():
         postid = int(line.split('-')[0].strip())
     except ValueError as err:
         return
-    if vim.eval('input("Do you delete %s ? [N]:", "N")'% line).upper() == 'N':
+    if vim.eval('input("Do you delete %s ? [Y/N]:", "N")'% line).upper() != 'Y':
         return 
     try:
         vim.command('call s:echo("Delete...")')
