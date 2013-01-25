@@ -28,7 +28,7 @@ let g:MetaWeblog_toggleView = 0
 runtime password.vim
 
 function! s:echo(msg)
-    redraw
+    redraw!
     echomsg "MetaWeblog: " . a:msg
 endfunction
 function! s:echoWarning(msg)
@@ -85,7 +85,12 @@ function! s:RstPost()
     if !exists('b:postid')
         let b:postid=0
     endif
-    let b:postid = input('Please input postid (0 for new post)['. b:postid .']:',b:postid)
+    let postid = input('Please input postid (0 for new post)['. b:postid .']:',b:postid)
+    if strlen(postid) == 0
+        call s:echoWarning('No input postid, exit!')
+        return
+    let b:postid = postid
+    let old_cursor = getpos('.')
     call cursor(1,0)
     let lineno = search('^=')
     if lineno == 1
@@ -100,6 +105,7 @@ function! s:RstPost()
     else
         let b:categories = ''
     endif
+    call setpos('.', old_cursor)
 python <<EOF
 import vim
 import xmlrpclib
@@ -412,7 +418,7 @@ function! s:ToggleRecentPostsView()
             let g:MetaWeblog_recentPostsWindow = winnr()
             setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
             setlocal cursorline
-            execute 'nnoremap <buffer> <silent> <enter> <ESC>:MetaWeblogBrowserPost<CR>'
+            execute 'nnoremap <buffer> <silent> <enter> <ESC>:MetaWeblogBrowsePost<CR>'
             execute 'nnoremap <buffer> <silent> e <ESC>:MetaWebloggetPost<CR>'
             execute 'nnoremap <buffer> <silent> r <ESC>:MetaWeblogrefreshRecentPosts<CR>'
             execute 'nnoremap <buffer> <silent> d <ESC>:MetaWeblogdeletePost<CR>'
@@ -443,10 +449,22 @@ function! s:Rst2html(output)
 endfunction
 
 function! s:BrowserView(url)
+    if exists('b:BrowserURL') && b:BrowserURL == a:url 
+        call s:echo('Browser reload ...')
+        if s:BrowserReload() == 0
+            call s:echo('Browser reload ... DONE')
+            return
+        endif
+        call s:echo('Browser reload ... FAILED! Open NEW Browser ...')
+    else
+        call s:echo('Open NEW Browser ...')
+    endif
+    let b:BrowserURL=a:url
     silent execute '!firefox ' . a:url . ' &'
+    call s:echo('Open NEW Browser ... DONE')
 endfunction
 
-function! s:BrowserPost()
+function! s:BrowsePost()
     call s:Init()
     let line = getline('.') 
     let len = stridx(line, ' - ')
@@ -455,8 +473,24 @@ function! s:BrowserPost()
     call s:BrowserView(url)
 endfunction
 
-function! s:BrowserLocal()
+function! s:BrowseServer()
+    call s:Init()
+    if exists('b:postid') && b:postid != 0
+        let url = s:blogurl . 'posts/' . b:postid
+    else
+        call s:echoWarning('No postid, exit!')
+        return
+    endif
+    call s:BrowserView(url)
+endfunction
+
+function! s:BrowseLocal()
+    if &filetype != 'rst' 
+        call s:echoWarning('No rst file!')
+        return
+    endif
     let b:rst = bufname('%')
+    let old_cursor = getpos('.')
     call cursor(1,0)
     let lineno = search('^=')
     if lineno == 1
@@ -464,6 +498,7 @@ function! s:BrowserLocal()
     else
         let b:title = getline(lineno - 1)
     endif
+    call setpos('.', old_cursor)
     let url = b:rst . '.html'
     call s:Rst2html(url)
     call s:BrowserView(url)
@@ -490,12 +525,13 @@ class Mozrepl(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.t.close()
-        del self.t
+        if hasattr(self, 't'):
+            self.t.close()
+            del self.t
 
     def BrowserReload(self):
         if not hasattr(self, 't'):
-            vim.command('call s:echoError("Do not connect to mozrepl!")')
+            vim.command('let ret=1')
             return
         cmd = '''
         vimYo = content.window.pageYOffset
@@ -505,15 +541,18 @@ class Mozrepl(object):
         repl.quit()
         '''
         self.t.write(cmd)
+        vim.command('let ret=0')
 
 with Mozrepl() as moz:
     moz.BrowserReload()
 EOF
+    return ret
 endfunction
 
-command! MetaWeblogBrowserPost           :call s:BrowserPost()
 command! MetaWeblogBrowserReload         :call s:BrowserReload()
-command! MetaWeblogBrowserLocal          :call s:BrowserLocal()
+command! MetaWeblogBrowseLocal           :call s:BrowseLocal()
+command! MetaWeblogBrowsePost            :call s:BrowsePost()
+command! MetaWeblogBrowseServer          :call s:BrowseServer()
 
 command! MetaWebloggetPost               :call s:GetPost()
 command! MetaWeblogrefreshRecentPosts    :call s:RefreshRecentPosts()
@@ -526,7 +565,7 @@ command! MetaWeblogPost                  :call s:PostArticle()
 nnoremap <unique> <silent> <leader>bl <ESC>:MetaWeblogToggleView<CR>
 nnoremap <unique> <silent> <leader>bp <ESC>:MetaWeblogPost<CR>
 nnoremap <unique> <silent> <leader>bu <ESC>:MetaWeblogUploadHereImgFile<CR>
-nnoremap <unique> <silent> <leader>br <ESC>:MetaWeblogBrowserReload<CR>
-nnoremap <unique> <silent> <leader>bb <ESC>:MetaWeblogBrowserLocal<CR>
+nnoremap <unique> <silent> <leader>bb <ESC>:MetaWeblogBrowseLocal<CR>
+nnoremap <unique> <silent> <leader>bs <ESC>:MetaWeblogBrowseServer<CR>
 
 

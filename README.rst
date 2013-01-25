@@ -64,8 +64,8 @@ VIM shortcut keys::
     <leader>bl      toggle recent blog view
     <leader>bp      post article 
     <leader>bu      upload file under cursor in html
-    <leader>br      reload current page in Browser (need mozrepl)
-    <leader>bb      preview on local
+    <leader>bb      preview for local
+    <leader>bs      preview for server
 
 TODO
 =====
