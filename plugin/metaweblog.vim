@@ -89,6 +89,7 @@ function! s:RstPost()
     if strlen(postid) == 0
         call s:echoWarning('No input postid, exit!')
         return
+    endif 
     let b:postid = postid
     let old_cursor = getpos('.')
     call cursor(1,0)
