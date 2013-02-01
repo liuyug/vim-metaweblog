@@ -313,11 +313,14 @@ def getPost():
         vim.command('let g:MetaWeblog_htmlWindow = winnr()')
 
     vim.command('let b:postid="%d"'% postid)
-    vim.command('let b:title="%s"'% data['title'])
+    title = data['title']
+    if isinstance(title, unicode):
+        title = title.encode('utf-8')
+    vim.command('let b:title="%s"'% title)
     content = data['description']
     # for python2.x, str and unicode are difference
     if isinstance(content, unicode):
-       content = content.encode('utf-8')
+        content = content.encode('utf-8')
     vim.current.buffer.append(content.split('\n'))
     vim.command('setlocal filetype=html')
     vim.command('setlocal buftype=nowrite bufhidden=wipe noswapfile nowrap')
